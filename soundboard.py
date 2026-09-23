@@ -23,6 +23,13 @@ FADE_DURATION = 2000
 TRANSITION_INCREMENT = 0.02
 HIGHLIGHT_BORDER_WIDTH = 4
 
+DEFAULT_COLOR = "#1C6BA4"
+DEFAULT_COLOR_HOVER = "#23476D"
+DEFAULT_COLOR_DISABLED = "#627E99"
+
+ACCENT_COLOR = "#9264C0"
+ACCENT_COLOR_HOVER = "#643B8D"
+
 ydl_opts = {
 	'format': 'bestaudio/best',
 	'postprocessors': [{
@@ -442,6 +449,10 @@ class App(customtkinter.CTkToplevel):
 		self.grid_columnconfigure(0, weight=1)
 		self.grid_rowconfigure(1, weight=1)
 
+		self.config_header = ConfigHeader(self)
+		self.config_header.grid(row=0, column=1, padx=(0, 10), pady=(10, 0), sticky="w")
+		self.add_header_tooltips()
+
 		self.header = None
 		self.load_header()
 
@@ -464,18 +475,17 @@ class App(customtkinter.CTkToplevel):
 			self.after_idle(lambda h=self.header: self.destroy_header(h))
 		self.header = new_header
 		self.update_idletasks()
-		self.add_header_tooltips()
 
 	def destroy_header(self, to_destroy):
-		to_destroy.global_settings_button.tooltip.destroy()
-		to_destroy.edit_button.tooltip.destroy()
-		if hasattr(to_destroy, "save_button"):
-			to_destroy.save_button.tooltip.destroy()
+		# to_destroy.global_settings_button.tooltip.destroy()
+		# to_destroy.edit_button.tooltip.destroy()
+		# if hasattr(to_destroy, "save_button"):
+		# 	to_destroy.save_button.tooltip.destroy()
 		to_destroy.destroy()
 
 	def load_page(self, page_data):
 		new_page = PageView(self, page_data)
-		new_page.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+		new_page.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 		if self.page_view is not None:
 			self.after_idle(lambda p=self.page_view: self.destroy_page(p))
 		self.page_view = new_page
@@ -498,7 +508,7 @@ class App(customtkinter.CTkToplevel):
 
 	def load_atf(self, track_data, channel_dict):
 		new_frame = AlternateTrackFrame(self, track_data, channel_dict)
-		new_frame.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="ew")
+		new_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="ew")
 		if self.alternate_track_frame is not None:
 			self.after_idle(lambda a=self.alternate_track_frame: self.destroy_atf(a))
 		self.alternate_track_frame = new_frame
@@ -566,7 +576,12 @@ class App(customtkinter.CTkToplevel):
 		if settings["autosave"]:
 			self.save()
 		else:
-			self.header.save_button.configure(state=self.get_save_button_state())
+			self.config_header.save_button.configure(
+				state=self.get_save_button_state(),
+				fg_color=ACCENT_COLOR,
+				hover_color=ACCENT_COLOR_HOVER,
+				border_color="#FFFFFF"
+			)
 
 	def get_save_button_state(self):
 		return "disabled" if data == saved_data else "normal"
@@ -703,13 +718,13 @@ class App(customtkinter.CTkToplevel):
 		self.all_tooltips = []
 
 	def add_header_tooltips(self):
-		self.header.global_settings_button.tooltip = CTkToolTip(self.header.global_settings_button, message="Global settings", delay=1, follow=False)
-		self.all_tooltips.append(self.header.global_settings_button.tooltip)
-		self.header.edit_button.tooltip = CTkToolTip(self.header.edit_button, message="Edit mode", delay=1, follow=False)
-		self.all_tooltips.append(self.header.edit_button.tooltip)
-		if hasattr(self.header, "save_button"):
-			self.header.save_button.tooltip = CTkToolTip(self.header.save_button, message="Save changes", delay=1, follow=False)
-			self.all_tooltips.append(self.header.save_button.tooltip)
+		self.config_header.global_settings_button.tooltip = CTkToolTip(self.config_header.global_settings_button, message="Global settings", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.global_settings_button.tooltip)
+		self.config_header.edit_button.tooltip = CTkToolTip(self.config_header.edit_button, message="Edit mode", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.edit_button.tooltip)
+		if hasattr(self.config_header, "save_button"):
+			self.config_header.save_button.tooltip = CTkToolTip(self.config_header.save_button, message="Save changes", delay=1, follow=False)
+			self.all_tooltips.append(self.config_header.save_button.tooltip)
 
 	def add_page_tooltips(self):
 		if self.page_view is not None:
@@ -884,8 +899,8 @@ class App(customtkinter.CTkToplevel):
 		with open(active_dir / 'data.json', 'w') as data_file:
 			json.dump(data, data_file, indent="\t")
 		saved_data = deepcopy(data)
-		if hasattr(self.header, "save_button"):
-			self.header.save_button.configure(state="disabled")
+		if hasattr(self.config_header, "save_button"):
+			self.config_header.save_button.configure(state="disabled", fg_color=DEFAULT_COLOR_DISABLED, border_color=DEFAULT_COLOR_DISABLED)
 
 	def close(self):
 		audio.close_audio_thread = True
@@ -896,6 +911,31 @@ class App(customtkinter.CTkToplevel):
 		self.close()
 		root.destroy()
 
+
+class ConfigHeader(customtkinter.CTkFrame):
+	def __init__(self, master):
+		super().__init__(master)
+
+		self.global_settings_button = customtkinter.CTkButton(self, text="", image=globe_icon, width=30, command=lambda: None)
+		self.global_settings_button.bind("<Button-1>", self.master.global_settings)
+		self.global_settings_button.grid(row=0, column=0, padx=(16,4), pady=16, sticky="nse")
+
+		self.edit_button = customtkinter.CTkButton(self, text="", image=edit_icon, width=30, command=self.master.toggle_edit)
+		self.edit_button.grid(row=0, column=1, padx=(12,4), pady=16, sticky="nse")
+
+		if not settings["autosave"]:
+			
+			self.save_button = customtkinter.CTkButton(
+				self,
+				text="",
+				state=self.master.get_save_button_state(),
+				image=save_icon,
+				fg_color=DEFAULT_COLOR_DISABLED,
+				border_color=DEFAULT_COLOR_DISABLED,
+				border_width = 2,
+				width=30,
+				command=self.master.save)
+			self.save_button.grid(row=0, column=2, padx=(12, 16), pady=16, sticky="nse")
 
 
 class Header(customtkinter.CTkFrame):
@@ -931,19 +971,6 @@ class Header(customtkinter.CTkFrame):
 			button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
 			self.header_buttons.append(button)
 
-		self.global_settings_button = customtkinter.CTkButton(self, text="", image=globe_icon, command=lambda: None)
-		self.global_settings_button.bind("<Button-1>", self.master.global_settings)
-		self.global_settings_button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="nse")
-		self.header_buttons.append(self.global_settings_button)
-
-		self.edit_button = customtkinter.CTkButton(self, text="", image=edit_icon, command=self.master.toggle_edit)
-		self.edit_button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="nse")
-		self.header_buttons.append(self.edit_button)
-
-		if not settings["autosave"]:
-			self.save_button = customtkinter.CTkButton(self, text="", state=self.master.get_save_button_state(), image=save_icon, command=self.master.save)
-			self.save_button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="nse")
-			self.header_buttons.append(self.save_button)
 
 		self.grid_columnconfigure(tuple(range(len(self.header_buttons))), uniform="header_buttons")
 
