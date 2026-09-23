@@ -225,14 +225,12 @@ class AudioManager():
 		self.main_backup_vol = None
 		self.ambience_backup_vol = None
 		self.channels = [pygame.mixer.Channel(x) for x in range(0, pygame.mixer.get_num_channels())]
-		self.active_channel = None
+		self.active_channel = self.channels[0]
 		self.close_audio_thread = False
 
 	def audio_monitor(self):
 		while not self.close_audio_thread:
 			time.sleep(0.05)
-			if self.active_channel is None:
-				continue
 
 			for c in self.channels:
 				v = c.get_volume()
