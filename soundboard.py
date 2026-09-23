@@ -206,6 +206,11 @@ def text_color(bg):
 
 def hover_color(bg):
 	hsv = colors.rgb_to_hsv(colors.to_rgb(bg))
+	darkened = (hsv[0], hsv[1], max(0.0, hsv[2] - 0.1))
+	return colors.to_hex(colors.hsv_to_rgb(darkened))
+
+def disabled_color(bg):
+	hsv = colors.rgb_to_hsv(colors.to_rgb(bg))
 	lightened = (hsv[0], hsv[1], min(1.0, hsv[2] + 0.1))
 	return colors.to_hex(colors.hsv_to_rgb(lightened))
 
@@ -322,10 +327,15 @@ class AudioManager():
 			self.fade_queue_data = args
 			self.fading = True
 
+			if self.playing_data is not None:
+				app.toggle_button_state(self.playing_data, "stop")
+				app.color_current_page(self.playing_data[0], "dehighlight")
+
 		else:
 			self.fading = False
 			if not ambience:
 				if self.playing_data is not None:
+					app.toggle_button_state(self.playing_data, "stop")
 					app.color_current_page(self.playing_data[0], "dehighlight")
 
 				self.fade_queue_data = None
@@ -364,6 +374,7 @@ class AudioManager():
 				self.main_started_playing = False
 				self.playing_data = args
 				app.color_current_page(self.playing_data[0], "highlight")
+				app.toggle_button_state(self.playing_data, "play")
 
 				pygame.mixer.pause()
 				for filename, channel in channel_dict.items():
@@ -376,17 +387,20 @@ class AudioManager():
 				pygame.mixer.music.set_volume(volume)
 				app.enable_stop_ambience()
 
+				app.toggle_button_state(self.ambience_data, "stop")
 				self.ambience_backup_vol = volume
 				self.ambience_data = None
 				pygame.mixer.music.stop()
 				self.sfx_started_playing = False
 				self.ambience_data = args
+				app.toggle_button_state(self.ambience_data, "play")
 
 				pygame.mixer.music.play()
 
 	def stop_music(self, force_instant=False):
 		if self.playing_data is not None:
 			app.color_current_page(self.playing_data[0], "dehighlight")
+			app.toggle_button_state(self.playing_data, "stop")
 
 		self.playing_data = None
 		self.queue_data = None
@@ -406,6 +420,9 @@ class AudioManager():
 		self.main_started_playing = False
 
 	def stop_ambience(self, force_instant=False):
+		if self.ambience_data is not None:
+			app.toggle_button_state(self.ambience_data, "stop")
+
 		self.ambience_data = None
 		app.disable_stop_ambience()
 		if not data["fade"] or force_instant:
@@ -479,8 +496,16 @@ class App(customtkinter.CTkToplevel):
 		if self.header is not None:
 			self.after_idle(lambda h=self.header: self.destroy_header(h))
 		self.header = new_header
+
+		if audio.playing_data is None:
+			self.disable_stop_music()
+		else:
+			self.color_current_page(audio.playing_data[0], "highlight")
+		if audio.ambience_data is None:
+			self.disable_stop_ambience()
 		if hasattr(self, 'page_view') and self.page_view is not None:
 			self.color_current_page(self.page_view.page_data)
+
 		self.update_idletasks()
 
 	def destroy_header(self, to_destroy):
@@ -502,6 +527,9 @@ class App(customtkinter.CTkToplevel):
 		self.add_page_tooltips()
 		if self.edit_mode:
 			self.enable_page_edit_mode()
+		
+		self.toggle_button_state(audio.playing_data, "play")
+		self.toggle_button_state(audio.ambience_data, "play")
 
 	def destroy_page(self, to_destroy):
 		self.color_current_page(to_destroy.page_data, "inactive")
@@ -636,6 +664,17 @@ class App(customtkinter.CTkToplevel):
 	def disable_stop_ambience(self):
 		if hasattr(self.header, "stop_ambience_button"):
 			self.header.stop_ambience_button.configure(state="disabled", fg_color=DEFAULT_COLOR_DISABLED)
+
+	def toggle_button_state(self, playing_data, state):
+		if playing_data is not None:
+			# if the song is on the current page. which it hopefully should be but just in case
+			if playing_data[0]["index"] == self.page_view.page_data["index"]:
+				color = playing_data[2].color if hasattr(playing_data[2], 'color') else data["color"]
+				song_button = self.page_view.columns[playing_data[1]["index"]].entries[playing_data[2]["index"]]
+				if state == "play":
+					song_button.configure(state="disabled", fg_color=disabled_color(color))
+				elif state == "stop":
+					song_button.configure(state="normal", fg_color=color)
 
 	def reindex_pages(self):
 		for i, page in enumerate(data["pages"]):
@@ -802,6 +841,9 @@ class App(customtkinter.CTkToplevel):
 			self.page_view.add_column_frame = None
 			self.edit_mode_add_objects = []
 			self.config_header.edit_button.configure(border_width=0, border_spacing=2)
+
+			self.toggle_button_state(audio.playing_data, "play")
+			self.toggle_button_state(audio.ambience_data, "play")
 
 	def enable_page_edit_mode(self):
 		if self.page_view is None:
@@ -1316,8 +1358,14 @@ class Column(customtkinter.CTkFrame):
 		# except:
 		# 	disabled = False
 		button = customtkinter.CTkButton(
-			self, text=label, fg_color=color, hover_color=hover_color(color), text_color=text_color(color),
-			border_color="white", border_width=HIGHLIGHT_BORDER_WIDTH if highlight else 0, state="disabled" if disabled else "normal")
+			self, text=label, fg_color=color, 
+			hover_color=hover_color(color), 
+			text_color=text_color(color),
+			border_color="white", 
+			border_width=HIGHLIGHT_BORDER_WIDTH if highlight else 0, 
+			state="disabled" if disabled else "normal",
+			text_color_disabled="#FFFFFF"
+			)
 		button.configure(command=lambda b=button: threading.Thread(
 			target=self.play_audio_button, args=(self.master.page_data, self.column_data, b.track_data), daemon=True).start())
 		button.grid(row=track_data["index"]+1, column=0, padx=10, pady=10, sticky="ew")
