@@ -327,6 +327,9 @@ class AudioManager():
 		else:
 			self.fading = False
 			if not ambience:
+				if self.playing_data is not None:
+					app.color_current_page(self.playing_data[0], "dehighlight")
+
 				self.fade_queue_data = None
 				self.playing_data = None
 				volume = self.calc_volume(volume, ambience)
@@ -362,6 +365,7 @@ class AudioManager():
 
 				self.main_started_playing = False
 				self.playing_data = args
+				app.color_current_page(self.playing_data[0], "highlight")
 
 				pygame.mixer.pause()
 				for filename, channel in channel_dict.items():
@@ -383,6 +387,9 @@ class AudioManager():
 				pygame.mixer.music.play()
 
 	def stop_music(self, force_instant=False):
+		if self.playing_data is not None:
+			app.color_current_page(self.playing_data[0], "dehighlight")
+
 		self.playing_data = None
 		self.queue_data = None
 		self.bookmark_data = None
@@ -474,6 +481,8 @@ class App(customtkinter.CTkToplevel):
 		if self.header is not None:
 			self.after_idle(lambda h=self.header: self.destroy_header(h))
 		self.header = new_header
+		if hasattr(self, 'page_view') and self.page_view is not None:
+			self.color_current_page(self.page_view.page_data)
 		self.update_idletasks()
 
 	def destroy_header(self, to_destroy):
@@ -484,6 +493,8 @@ class App(customtkinter.CTkToplevel):
 		to_destroy.destroy()
 
 	def load_page(self, page_data):
+		self.color_current_page(page_data)
+
 		new_page = PageView(self, page_data)
 		new_page.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 		if self.page_view is not None:
@@ -495,11 +506,24 @@ class App(customtkinter.CTkToplevel):
 			self.enable_page_edit_mode()
 
 	def destroy_page(self, to_destroy):
+		self.color_current_page(to_destroy.page_data, "inactive")
+
 		for c in to_destroy.columns:
 			for t in c.entries:
 				if hasattr(t, "tooltip"):
 					t.tooltip.destroy()
 		to_destroy.destroy()
+
+	def color_current_page(self, page_data, command="active"):
+			start_index = 2 if self.uses_ambience() else 1
+			if command == "active":
+				self.header.header_buttons[start_index+page_data["index"]].configure(state="disabled", fg_color=ACCENT_COLOR)
+			elif command == "inactive":
+				self.header.header_buttons[start_index+page_data["index"]].configure(state="normal", fg_color=DEFAULT_COLOR)
+			elif command == "highlight":
+				self.header.header_buttons[start_index+page_data["index"]].configure(border_width=2)
+			elif command == "dehighlight":
+				self.header.header_buttons[start_index+page_data["index"]].configure(border_width=0)
 
 	def destroy_object_tooltip(self, to_destroy):
 		if hasattr(to_destroy, "tooltip"):
@@ -576,12 +600,19 @@ class App(customtkinter.CTkToplevel):
 		if settings["autosave"]:
 			self.save()
 		else:
-			self.config_header.save_button.configure(
-				state=self.get_save_button_state(),
-				fg_color=ACCENT_COLOR,
-				hover_color=ACCENT_COLOR_HOVER,
-				border_color="#FFFFFF"
-			)
+			if self.get_save_button_state() == "normal":
+				self.config_header.save_button.configure(
+					state="normal",
+					fg_color=ACCENT_COLOR,
+					hover_color=ACCENT_COLOR_HOVER,
+					border_color="#FFFFFF"
+				)
+			else:
+				self.config_header.save_button.configure(
+					state="disabled",
+					fg_color=DEFAULT_COLOR_DISABLED,
+					border_color=DEFAULT_COLOR_DISABLED
+				)
 
 	def get_save_button_state(self):
 		return "disabled" if data == saved_data else "normal"
@@ -595,18 +626,18 @@ class App(customtkinter.CTkToplevel):
 		return False
 
 	def enable_stop_music(self):
-		self.header.stop_music_button.configure(state="normal")
+		self.header.stop_music_button.configure(state="normal", fg_color=DEFAULT_COLOR)
 
 	def enable_stop_ambience(self):
 		if hasattr(self.header, "stop_ambience_button"):
-			self.header.stop_ambience_button.configure(state="normal")
+			self.header.stop_ambience_button.configure(state="normal", fg_color=DEFAULT_COLOR)
 
 	def disable_stop_music(self):
-		self.header.stop_music_button.configure(state="disabled")
+		self.header.stop_music_button.configure(state="disabled", fg_color=DEFAULT_COLOR_DISABLED)
 
 	def disable_stop_ambience(self):
 		if hasattr(self.header, "stop_ambience_button"):
-			self.header.stop_ambience_button.configure(state="disabled")
+			self.header.stop_ambience_button.configure(state="disabled", fg_color=DEFAULT_COLOR_DISABLED)
 
 	def reindex_pages(self):
 		for i, page in enumerate(data["pages"]):
@@ -953,14 +984,22 @@ class Header(customtkinter.CTkFrame):
 
 		self.header_buttons = []
 
-		self.stop_music_button = customtkinter.CTkButton(self, text="Stop Music",
-			state="normal" if audio.playing_data is not None else "disabled", command=audio.stop_music)
+		self.stop_music_button = customtkinter.CTkButton(self, 
+			text="Stop Music",
+			state="normal" if audio.playing_data is not None else "disabled",
+			fg_color=DEFAULT_COLOR if audio.playing_data is not None else DEFAULT_COLOR_DISABLED,
+			text_color_disabled="#D4D4D4",
+			command=audio.stop_music)
 		self.stop_music_button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
 		self.header_buttons.append(self.stop_music_button)
 
 		if self.master.uses_ambience():
-			self.stop_ambience_button = customtkinter.CTkButton(self, text="Stop Ambience",
-				state="normal" if audio.ambience_data is not None else "disabled", command=audio.stop_ambience)
+			self.stop_ambience_button = customtkinter.CTkButton(self,
+				text="Stop Ambience",
+				state="normal" if audio.ambience_data is not None else "disabled",
+				fg_color=DEFAULT_COLOR if audio.playing_data is not None else DEFAULT_COLOR_DISABLED,
+				text_color_disabled="#D4D4D4",
+				command=audio.stop_ambience)
 			self.stop_ambience_button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
 			self.header_buttons.append(self.stop_ambience_button)
 
@@ -968,6 +1007,8 @@ class Header(customtkinter.CTkFrame):
 			label = page["pageLabel"]
 			button = customtkinter.CTkButton(
 				self, text=label,
+				text_color_disabled="#D4D4D4",
+				border_color="#FFFFFF",
 				command=lambda a=data["pages"][i]: app.load_page(a))
 			button.page_data = data["pages"][i]
 			button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
