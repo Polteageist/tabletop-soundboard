@@ -772,10 +772,12 @@ class App(customtkinter.CTkToplevel):
 				obj.destroy()
 			self.page_view.add_column_frame = None
 			self.edit_mode_add_objects = []
+			self.config_header.edit_button.configure(border_width=0, border_spacing=2)
 
 	def enable_page_edit_mode(self):
 		if self.page_view is None:
 			return
+		self.config_header.edit_button.configure(border_width=2, border_spacing=0)
 		for obj in self.edit_mode_add_objects:
 			obj.destroy()
 		self.page_view.add_column_frame = None
@@ -920,7 +922,14 @@ class ConfigHeader(customtkinter.CTkFrame):
 		self.global_settings_button.bind("<Button-1>", self.master.global_settings)
 		self.global_settings_button.grid(row=0, column=0, padx=(16,4), pady=16, sticky="nse")
 
-		self.edit_button = customtkinter.CTkButton(self, text="", image=edit_icon, width=30, command=self.master.toggle_edit)
+		self.edit_button = customtkinter.CTkButton(
+			self,
+			text="",
+			image=edit_icon,
+			border_color="#FFFFFF",
+			border_width = 0,
+			width=30,
+			command=self.master.toggle_edit)
 		self.edit_button.grid(row=0, column=1, padx=(12,4), pady=16, sticky="nse")
 
 		if not settings["autosave"]:
