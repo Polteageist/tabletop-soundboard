@@ -22,6 +22,7 @@ VERSION_NUM = "0.1.3"
 FADE_DURATION = 2000
 TRANSITION_INCREMENT = 0.02
 HIGHLIGHT_BORDER_WIDTH = 4
+BUTTON_WIDTH = 140
 
 DEFAULT_COLOR = "#1C6BA4"
 DEFAULT_COLOR_HOVER = "#23476D"
@@ -215,6 +216,23 @@ def disabled_color(bg):
 	lightened = (hsv[0], hsv[1], min(1.0, hsv[2] + 0.1))
 	return colors.to_hex(colors.hsv_to_rgb(lightened))
 
+def format_text(text):
+	max_len = 14
+	if len(text) > max_len:
+		start = 0
+		end = start + max_len
+		print(f"Length: {len(text)}")
+		while start < len(text) and end < len(text):
+			space_idx = text.rfind(" ", start, end)
+			if space_idx > -1:
+				text = text[0:space_idx] + "\n" + text[space_idx + 1:]
+				start = space_idx + 1
+			else:
+				text = text[0:end] + "\n" + text[end:]
+				start = end
+			end = start + max_len
+	print(text)
+	return text
 
 
 class AudioManager():
@@ -1055,6 +1073,7 @@ class Header(customtkinter.CTkFrame):
 			state="normal" if audio.playing_data is not None else "disabled",
 			fg_color=DEFAULT_COLOR if audio.playing_data is not None else DEFAULT_COLOR_DISABLED,
 			text_color_disabled="#D4D4D4",
+			width=BUTTON_WIDTH,
 			command=audio.stop_music)
 		self.stop_music_button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
 		self.header_buttons.append(self.stop_music_button)
@@ -1065,6 +1084,7 @@ class Header(customtkinter.CTkFrame):
 				state="normal" if audio.ambience_data is not None else "disabled",
 				fg_color=DEFAULT_COLOR if audio.playing_data is not None else DEFAULT_COLOR_DISABLED,
 				text_color_disabled="#D4D4D4",
+				width=BUTTON_WIDTH,
 				command=audio.stop_ambience)
 			self.stop_ambience_button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
 			self.header_buttons.append(self.stop_ambience_button)
@@ -1072,9 +1092,10 @@ class Header(customtkinter.CTkFrame):
 		for i, page in enumerate(data["pages"]):
 			label = page["pageLabel"]
 			button = customtkinter.CTkButton(
-				self, text=label,
+				self, text=format_text(label),
 				text_color_disabled="#D4D4D4",
 				border_color="#FFFFFF",
+				width=BUTTON_WIDTH,
 				command=lambda a=data["pages"][i]: app.load_page(a))
 			button.page_data = data["pages"][i]
 			button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
@@ -1141,7 +1162,7 @@ class Header(customtkinter.CTkFrame):
 		)
 		if not label:
 			return
-		button.configure(text=label)
+		button.configure(text=format_text(label))
 		button.page_data["pageLabel"] = label
 		app.data_changed()
 
@@ -1358,7 +1379,12 @@ class Column(customtkinter.CTkFrame):
 
 		self.grid_columnconfigure(0, weight=1)
 
-		self.title = customtkinter.CTkLabel(self, text=column_data["columnLabel"], fg_color="gray30", corner_radius=6)
+		self.title = customtkinter.CTkButton(self,
+			text=format_text(column_data["columnLabel"]),
+			fg_color="gray30",
+			text_color_disabled="#FFF",
+			width=BUTTON_WIDTH,
+			state="disabled")
 		self.title.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 		self.title.bind("<Button-2>", self.column_label_right_click_menu)
 		self.title.bind("<Button-3>", self.column_label_right_click_menu)
@@ -1379,20 +1405,22 @@ class Column(customtkinter.CTkFrame):
 		ambience = track_data["ambience"] if "ambience" in track_data else False
 		highlight = track_data["highlight"] if "highlight" in track_data else False
 		disabled = False
+
 		# try:
 		# 	disabled = app.edit_mode
 		# except:
 		# 	disabled = False
 		button = customtkinter.CTkButton(
 			self,
-			text=label if "subdata" not in track_data else f"{label} ({len(track_data["subdata"])})",
+			text=format_text(label if "subdata" not in track_data else f"{label} ({len(track_data["subdata"])})"),
 			fg_color=color, 
 			hover_color=hover_color(color), 
 			text_color=text_color(color),
 			border_color="white", 
 			border_width=HIGHLIGHT_BORDER_WIDTH if highlight else 0, 
+			text_color_disabled="#FFFFFF",
+			width=BUTTON_WIDTH,
 			state="disabled" if disabled else "normal",
-			text_color_disabled="#FFFFFF"
 			)
 		button.configure(command=lambda b=button: threading.Thread(
 			target=self.play_audio_button, args=(self.master.page_data, self.column_data, b.track_data), daemon=True).start())
@@ -1481,7 +1509,7 @@ class Column(customtkinter.CTkFrame):
 
 	def receive_text_volume(self, button, new_label, new_volume):
 		if new_label:
-			button.configure(text=new_label)
+			button.configure(text=format_text(new_label if "subdata" not in button.track_data else f"{new_label} ({len(button.track_data["subdata"])})"))
 			button.track_data["label"] = new_label
 		button.track_data["volume"] = new_volume
 		if audio.playing_data is not None and audio.playing_data[2] is button.track_data:
@@ -1659,7 +1687,7 @@ class Column(customtkinter.CTkFrame):
 		)
 		if not label:
 			return
-		self.title.configure(text=label)
+		self.title.configure(text=format_text(label))
 		self.column_data["columnLabel"] = label
 		app.data_changed()
 
@@ -1801,7 +1829,7 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 		for track in self.track_data["subdata"]:
 			file = track["file"] if "file" in track else self.track_data["file"]
 			button = customtkinter.CTkButton(self,
-				text=track["sublabel"],
+				text=format_text(track["sublabel"]),
 				fg_color=DEFAULT_COLOR if "file" in track else ACCENT_COLOR,
 				hover_color=DEFAULT_COLOR_HOVER if "file" in track else ACCENT_COLOR_HOVER,
 				border_color="#FFFFFF",
@@ -1839,7 +1867,7 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 		if not label:
 			return
 		if button.winfo_exists():
-			button.configure(text=label)
+			button.configure(text=format_text(label))
 		button.subdata_entry["sublabel"] = label
 		app.data_changed()
 
