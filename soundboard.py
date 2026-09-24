@@ -632,6 +632,10 @@ class App(customtkinter.CTkToplevel):
 	def atf_grid(self):
 		if self.alternate_track_frame is None:
 			return
+		if not self.alternate_track_frame.winfo_exists():
+			self.alternate_track_frame = None
+			return
+		
 		atf_width = self.alternate_track_frame.winfo_width()
 		button_width = self.alternate_track_frame.buttons[0].winfo_width()
 		row_total = 12
