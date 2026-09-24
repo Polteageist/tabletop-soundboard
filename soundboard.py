@@ -1358,7 +1358,9 @@ class Column(customtkinter.CTkFrame):
 		# except:
 		# 	disabled = False
 		button = customtkinter.CTkButton(
-			self, text=label, fg_color=color, 
+			self,
+			text=label if "subdata" not in track_data else f"{label} ({len(track_data["subdata"])})",
+			fg_color=color, 
 			hover_color=hover_color(color), 
 			text_color=text_color(color),
 			border_color="white", 
@@ -1531,6 +1533,10 @@ class Column(customtkinter.CTkFrame):
 		if not label:
 			label = path.stem
 		button.track_data["subdata"].append({"file": path.name, "subindex": len(button.track_data["subdata"]), "sublabel": label})
+
+		label = button.track_data["label"] if "label" in button.track_data else Path(button.track_data["file"]).stem
+		button.configure(text=label if "subdata" not in button.track_data else f"{label} ({len(button.track_data["subdata"])})")
+
 		app.data_changed()
 
 	def reset_text(self, button):
@@ -1549,6 +1555,10 @@ class Column(customtkinter.CTkFrame):
 			if app.alternate_track_frame is not None:
 				app.after_idle(lambda a=app.alternate_track_frame: app.destroy_atf(a))
 		button.track_data.pop("subdata", None)
+
+		label = button.track_data["label"] if "label" in button.track_data else Path(button.track_data["file"]).stem
+		button.configure(text=label)
+
 		app.data_changed()
 
 	def remove_track(self, button):
@@ -1764,7 +1774,11 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 
 		for track in self.track_data["subdata"]:
 			file = track["file"] if "file" in track else self.track_data["file"]
-			button = customtkinter.CTkButton(self, text=track["sublabel"], command=lambda f=self.channel_dict[file]: audio.set_active_channel(f))
+			button = customtkinter.CTkButton(self,
+				text=track["sublabel"],
+				fg_color=DEFAULT_COLOR if "file" in track else ACCENT_COLOR,
+				hover_color=DEFAULT_COLOR_HOVER if "file" in track else ACCENT_COLOR_HOVER,
+				command=lambda f=self.channel_dict[file]: audio.set_active_channel(f))
 			button.grid(row=0, column=len(self.buttons), padx=(16, 4), pady=16, sticky="nsew")
 			button.bind("<Button-2>", lambda event, b=button: self.atf_button_right_click_menu(event, b))
 			button.bind("<Button-3>", lambda event, b=button: self.atf_button_right_click_menu(event, b))
