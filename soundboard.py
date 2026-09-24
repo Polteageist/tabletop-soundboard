@@ -29,6 +29,7 @@ DEFAULT_COLOR_DISABLED = "#627E99"
 
 ACCENT_COLOR = "#9264C0"
 ACCENT_COLOR_HOVER = "#643B8D"
+ACCENT_COLOR_DISABLED = "#9F80C0"
 
 ydl_opts = {
 	'format': 'bestaudio/best',
@@ -231,6 +232,7 @@ class AudioManager():
 		self.ambience_backup_vol = None
 		self.channels = [pygame.mixer.Channel(x) for x in range(0, pygame.mixer.get_num_channels())]
 		self.active_channel = self.channels[0]
+		self.active_channel_track_idx = None
 		self.close_audio_thread = False
 
 	def audio_monitor(self):
@@ -354,10 +356,12 @@ class AudioManager():
 						c_id = 1
 						for subdata_entry in track["subdata"]:
 							if "file" not in subdata_entry:
+								self.active_channel_track_idx = subdata_entry["subindex"]
 								continue
 							channel_dict[subdata_entry["file"]] = self.channels[c_id]
 							c_id += 1
 						app.load_atf(track, channel_dict)
+						app.alternate_track_frame.buttons[self.active_channel_track_idx].configure(border_width=2, fg_color=ACCENT_COLOR_DISABLED, state="disabled")
 					elif app.alternate_track_frame is not None:
 						app.after_idle(lambda a=app.alternate_track_frame: app.destroy_atf(a))
 
@@ -454,8 +458,10 @@ class AudioManager():
 	def clear_queue(self):
 		self.queue_data = None
 
-	def set_active_channel(self, channel):
+	def set_active_channel(self, channel, track):
 		self.active_channel = channel
+		self.active_channel_track_idx = track["subindex"]
+		app.toggle_atf_buttons()
 
 
 
@@ -516,8 +522,6 @@ class App(customtkinter.CTkToplevel):
 		to_destroy.destroy()
 
 	def load_page(self, page_data):
-		self.color_current_page(page_data)
-
 		new_page = PageView(self, page_data)
 		new_page.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 		if self.page_view is not None:
@@ -527,7 +531,8 @@ class App(customtkinter.CTkToplevel):
 		self.add_page_tooltips()
 		if self.edit_mode:
 			self.enable_page_edit_mode()
-		
+
+		self.color_current_page(page_data)
 		self.toggle_button_state(audio.playing_data, "play")
 		self.toggle_button_state(audio.ambience_data, "play")
 
@@ -564,11 +569,28 @@ class App(customtkinter.CTkToplevel):
 		self.alternate_track_frame = new_frame
 		self.after_idle(self.add_atf_tooltips)
 
+		if audio.playing_data:
+			self.toggle_atf_buttons()
+
 	def destroy_atf(self, to_destroy):
 		for b in to_destroy.buttons:
 			if hasattr(b, "tooltip"):
 				b.tooltip.destroy()
 		to_destroy.destroy()
+
+	def toggle_atf_buttons(self):
+		tracks = self.alternate_track_frame.track_data["subdata"]
+		for idx, c_button in enumerate(app.alternate_track_frame.buttons):
+			if idx == audio.active_channel_track_idx:
+				c_button.configure(
+					fg_color=DEFAULT_COLOR_DISABLED if "file" in tracks[idx] else ACCENT_COLOR_DISABLED,
+					border_width=2,
+					state="disabled")
+			else:
+				c_button.configure(
+					fg_color=DEFAULT_COLOR if "file" in tracks[idx] else ACCENT_COLOR,
+					border_width=0,
+					state="normal")
 
 	def resize(self, event):
 		self.header_grid()
@@ -1778,7 +1800,10 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 				text=track["sublabel"],
 				fg_color=DEFAULT_COLOR if "file" in track else ACCENT_COLOR,
 				hover_color=DEFAULT_COLOR_HOVER if "file" in track else ACCENT_COLOR_HOVER,
-				command=lambda f=self.channel_dict[file]: audio.set_active_channel(f))
+				border_color="#FFFFFF",
+				border_width=0,
+				text_color_disabled="#D4D4D4",
+				command=lambda f=self.channel_dict[file], t=track: audio.set_active_channel(f, t))
 			button.grid(row=0, column=len(self.buttons), padx=(16, 4), pady=16, sticky="nsew")
 			button.bind("<Button-2>", lambda event, b=button: self.atf_button_right_click_menu(event, b))
 			button.bind("<Button-3>", lambda event, b=button: self.atf_button_right_click_menu(event, b))
@@ -1840,6 +1865,7 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 				app.data_changed()
 				if "label" not in track:
 					app.load_page(app.page_view.page_data)
+				app.load_atf(self.track_data, self.channel_dict)
 				return
 
 	def remove_linked_track(self, button):
