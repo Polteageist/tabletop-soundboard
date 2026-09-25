@@ -671,8 +671,8 @@ class App(customtkinter.CTkToplevel):
 			if self.get_save_button_state() == "normal":
 				self.config_header.save_button.configure(
 					state="normal",
-					fg_color=ACCENT_COLOR,
-					hover_color=ACCENT_COLOR_HOVER,
+					fg_color=DEFAULT_COLOR,
+					hover_color=DEFAULT_COLOR_HOVER,
 					border_color="#FFFFFF"
 				)
 			else:
@@ -711,12 +711,11 @@ class App(customtkinter.CTkToplevel):
 		if playing_data is not None:
 			# if the song is on the current page. which it hopefully should be but just in case
 			if playing_data[0]["index"] == self.page_view.page_data["index"]:
-				color = playing_data[2].color if hasattr(playing_data[2], 'color') else data["color"]
 				song_button = self.page_view.columns[playing_data[1]["index"]].entries[playing_data[2]["index"]]
 				if state == "play":
-					song_button.configure(state="disabled", fg_color=disabled_color(color))
+					song_button.configure(state="disabled", border_width=2)
 				elif state == "stop":
-					song_button.configure(state="normal", fg_color=color)
+					song_button.configure(state="normal", border_width=0)
 
 	def reindex_pages(self):
 		for i, page in enumerate(data["pages"]):
@@ -1011,6 +1010,7 @@ class App(customtkinter.CTkToplevel):
 		self.data_changed()
 
 	def save(self):
+		global saved_data
 		with open(active_dir / 'data.json', 'w') as data_file:
 			json.dump(data, data_file, indent="\t")
 		saved_data = deepcopy(data)
@@ -1415,11 +1415,13 @@ class Column(customtkinter.CTkFrame):
 			hover_color=hover_color(color), 
 			text_color=text_color(color),
 			border_color="white", 
-			border_width=HIGHLIGHT_BORDER_WIDTH if highlight else 0, 
-			text_color_disabled="#FFFFFF",
+			border_width=0,
+			text_color_disabled=text_color(color),
 			width=BUTTON_WIDTH,
 			state="disabled" if disabled else "normal",
 			)
+		if highlight:
+			button.configure(font=highlight_font)
 		button.configure(command=lambda b=button: threading.Thread(
 			target=self.play_audio_button, args=(self.master.page_data, self.column_data, b.track_data), daemon=True).start())
 		button.grid(row=track_data["index"]+1, column=0, padx=10, pady=10, sticky="ew")
@@ -1547,10 +1549,10 @@ class Column(customtkinter.CTkFrame):
 	def toggle_highlight(self, button):
 		if button.highlight_var.get():
 			button.track_data["highlight"] = True
-			button.configure(border_width=HIGHLIGHT_BORDER_WIDTH)
+			button.configure(font=highlight_font)
 		else:
 			button.track_data.pop("highlight", None)
-			button.configure(border_width=0)
+			button.configure(font=normal_font)
 		app.data_changed()
 
 	def link_alternate_track(self, button):
@@ -2096,6 +2098,9 @@ class TextVolumePopup(customtkinter.CTkToplevel):
 
 root = customtkinter.CTk()
 root.withdraw()
+
+highlight_font = customtkinter.CTkFont(weight="bold")
+normal_font = customtkinter.CTkFont(weight="normal")
 
 initialize_data()
 initialize_app()
