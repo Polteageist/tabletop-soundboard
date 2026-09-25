@@ -48,6 +48,17 @@ globe_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.WOR
 edit_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.EDIT, color='#000'),
 									dark_image=TablerIcons.load(OutlineIcon.EDIT, color='#fff'))
 
+ICON_SIZE = 24
+
+loop_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.REPEAT, color='#000', size=ICON_SIZE),
+									dark_image=TablerIcons.load(OutlineIcon.REPEAT, color='#fff', size=ICON_SIZE))
+playlist_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.PLAYLIST, color='#000', size=ICON_SIZE),
+									dark_image=TablerIcons.load(OutlineIcon.PLAYLIST, color='#fff', size=ICON_SIZE))
+fade_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.BLEND_MODE, color='#000', size=ICON_SIZE),
+									dark_image=TablerIcons.load(OutlineIcon.BLEND_MODE, color='#fff', size=ICON_SIZE))
+autosave_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.DEVICE_FLOPPY, color='#000', size=ICON_SIZE),
+									dark_image=TablerIcons.load(OutlineIcon.DEVICE_FLOPPY, color='#fff', size=ICON_SIZE))
+
 try:
 	with open('settings.json', 'r') as settings_file:
 		settings = json.load(settings_file)
@@ -139,12 +150,14 @@ def initialize_app():
 
 	app.default_loop = customtkinter.BooleanVar(value=data["loop"])
 	app.fade_transitions = customtkinter.BooleanVar(value=data["fade"])
+	fffdefdfdfdefdefdfdefffde49 = "beans"
 
 def finalize_app():
 	audio_monitor_handler = threading.Thread(target=audio.audio_monitor, daemon=True)
 	app.set_tooltips()
 	app.update_idletasks()
 	audio_monitor_handler.start()
+	app.config_header.update_icons()
 	app.focus_force()
 
 def open_soundboard(event):
@@ -735,7 +748,7 @@ class App(customtkinter.CTkToplevel):
 		context_menu.add_separator()
 		context_menu.add_checkbutton(label="Autosave", variable=autosave, command=self.toggle_autosave)
 		context_menu.add_checkbutton(label="Enable Tooltips", variable=enable_tooltips, command=self.set_tooltips)
-		context_menu.add_checkbutton(label="Playlist Mode", variable=playlist_mode)
+		context_menu.add_checkbutton(label="Playlist Mode", variable=playlist_mode, command=app.config_header.update_icons)
 		context_menu.add_separator()
 
 		audio_output_menu = tkinter.Menu(context_menu, tearoff=0)
@@ -754,6 +767,7 @@ class App(customtkinter.CTkToplevel):
 
 	def toggle_fade_transitions(self):
 		data["fade"] = self.fade_transitions.get()
+		self.config_header.update_icons()
 		self.data_changed()
 
 	def change_global_music_volume(self):
@@ -799,6 +813,7 @@ class App(customtkinter.CTkToplevel):
 						continue
 					if "loop" not in button.track_data:
 						button.loop_var.set(data["loop"])
+		self.config_header.update_icons()
 		self.data_changed()
 
 	def toggle_autosave(self):
@@ -808,6 +823,7 @@ class App(customtkinter.CTkToplevel):
 				json.dump(settings, settings_file, indent="\t")
 		if settings["autosave"]:
 			self.save()
+		self.config_header.update_icons()
 		self.load_header()
 
 	def set_tooltips(self):
@@ -1026,14 +1042,70 @@ class App(customtkinter.CTkToplevel):
 		self.close()
 		root.destroy()
 
+class ConfigIcons(customtkinter.CTkFrame):
+	def __init__(self, master):
+		super().__init__(master)
+
+		self.configure(fg_color="transparent")
+
+		self.loop_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.loop_label.grid(row=0, column=0, padx=1, pady=1)
+
+		self.fade_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.fade_label.grid(row=1, column=0, padx=1, pady=1)
+
+		self.playlist_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.playlist_label.grid(row=0, column=1, padx=1, pady=1)
+
+		self.save_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.save_label.grid(row=1, column=1, padx=1, pady=1)
+
+		self.update_icons()
+
+
+	def update_icons(self):
+		exists = False
+		
+		if hasattr(self.master.master, 'default_loop') and self.master.master.default_loop.get():
+			self.loop_label.configure(image=loop_icon)
+			exists = True
+		else:
+			self.loop_label.configure(image="")
+		
+		if hasattr(self.master.master, 'fade_transitions') and self.master.master.fade_transitions.get():
+			self.fade_label.configure(image=fade_icon)
+			exists = True
+		else:
+			self.fade_label.configure(image="")
+		
+		if 'autosave' in globals() and autosave.get():
+			self.save_label.configure(image=autosave_icon)
+			exists = True
+		else:
+			self.save_label.configure(image="")
+
+		if 'playlist_mode' in globals() and playlist_mode.get():
+			self.playlist_label.configure(image=playlist_icon)
+			exists = True
+		else:
+			self.playlist_label.configure(image="")
+
+		if exists:
+			self.grid(padx=(11,0))
+		else:
+			self.grid(padx=0)
+
 
 class ConfigHeader(customtkinter.CTkFrame):
 	def __init__(self, master):
 		super().__init__(master)
 
+		self.config_icons = ConfigIcons(self)
+		self.config_icons.grid(row=0, column=0, pady=(9), sticky="ne")
+
 		self.global_settings_button = customtkinter.CTkButton(self, text="", image=globe_icon, width=30, command=lambda: None)
 		self.global_settings_button.bind("<Button-1>", self.master.global_settings)
-		self.global_settings_button.grid(row=0, column=0, padx=(16,4), pady=16, sticky="nse")
+		self.global_settings_button.grid(row=0, column=1, padx=(12,4), pady=16, sticky="nse")
 
 		self.edit_button = customtkinter.CTkButton(
 			self,
@@ -1043,7 +1115,7 @@ class ConfigHeader(customtkinter.CTkFrame):
 			border_width = 0,
 			width=30,
 			command=self.master.toggle_edit)
-		self.edit_button.grid(row=0, column=1, padx=(12,4), pady=16, sticky="nse")
+		self.edit_button.grid(row=0, column=2, padx=(12,4), pady=16, sticky="nse")
 
 		if not settings["autosave"]:
 			
@@ -1057,7 +1129,10 @@ class ConfigHeader(customtkinter.CTkFrame):
 				border_width = 2,
 				width=30,
 				command=self.master.save)
-			self.save_button.grid(row=0, column=2, padx=(12, 16), pady=16, sticky="nse")
+			self.save_button.grid(row=0, column=3, padx=(12, 16), pady=16, sticky="nse")
+
+	def update_icons(self):
+		self.config_icons.update_icons()
 
 
 class Header(customtkinter.CTkFrame):
