@@ -743,6 +743,7 @@ class App(customtkinter.CTkToplevel):
 		context_menu.add_command(label="Global Music Volume", command=self.change_global_music_volume)
 		context_menu.add_command(label="Global Ambience Volume", command=self.change_global_ambience_volume)
 		context_menu.add_command(label="Change Default Color", command=self.change_default_color)
+		context_menu.add_checkbutton(label="Show Track Counts", variable=show_track_count, command=self.toggle_track_count)
 		context_menu.add_checkbutton(label="Use Fade Transitions", variable=self.fade_transitions, command=self.toggle_fade_transitions)
 		context_menu.add_checkbutton(label="Loop by Default", variable=self.default_loop, command=self.toggle_default_loop)
 		context_menu.add_separator()
@@ -764,6 +765,10 @@ class App(customtkinter.CTkToplevel):
 			context_menu.post(event.x_root, event.y_root)
 		finally:
 			context_menu.grab_release()
+
+	def toggle_track_count(self):
+		self.load_page(self.page_view.page_data)
+		self.load_header()
 
 	def toggle_fade_transitions(self):
 		data["fade"] = self.fade_transitions.get()
@@ -1101,11 +1106,11 @@ class ConfigHeader(customtkinter.CTkFrame):
 		super().__init__(master)
 
 		self.config_icons = ConfigIcons(self)
-		self.config_icons.grid(row=0, column=0, pady=(9), sticky="ne")
+		self.config_icons.grid(row=0, column=0, pady=(8), sticky="ne")
 
-		self.global_settings_button = customtkinter.CTkButton(self, text="", image=globe_icon, width=30, command=lambda: None)
+		self.global_settings_button = customtkinter.CTkButton(self, text="", image=globe_icon, width=32, height=32, command=lambda: None)
 		self.global_settings_button.bind("<Button-1>", self.master.global_settings)
-		self.global_settings_button.grid(row=0, column=1, padx=(12,4), pady=16, sticky="nse")
+		self.global_settings_button.grid(row=0, column=1, padx=(12,4), pady=14, sticky="nse")
 
 		self.edit_button = customtkinter.CTkButton(
 			self,
@@ -1113,9 +1118,10 @@ class ConfigHeader(customtkinter.CTkFrame):
 			image=edit_icon,
 			border_color="#FFFFFF",
 			border_width = 0,
-			width=30,
+			width=32,
+			height=32,
 			command=self.master.toggle_edit)
-		self.edit_button.grid(row=0, column=2, padx=(12,4), pady=16, sticky="nse")
+		self.edit_button.grid(row=0, column=2, padx=(12,4), pady=14, sticky="nse")
 
 		if not settings["autosave"]:
 			
@@ -1127,9 +1133,10 @@ class ConfigHeader(customtkinter.CTkFrame):
 				fg_color=DEFAULT_COLOR_DISABLED,
 				border_color=DEFAULT_COLOR_DISABLED,
 				border_width = 2,
-				width=30,
+				width=32,
+				height=32,
 				command=self.master.save)
-			self.save_button.grid(row=0, column=3, padx=(12, 16), pady=16, sticky="nse")
+			self.save_button.grid(row=0, column=3, padx=(12, 16), pady=14, sticky="nse")
 
 	def update_icons(self):
 		self.config_icons.update_icons()
@@ -1164,6 +1171,14 @@ class Header(customtkinter.CTkFrame):
 
 		for i, page in enumerate(data["pages"]):
 			label = page["pageLabel"]
+
+			if show_track_count.get():
+				track_count = 0
+				for col in page["columns"]:
+					track_count = track_count + len(col["tracks"])
+
+				label = f"{label} ({track_count})"
+
 			button = customtkinter.CTkButton(
 				self, text=format_text(label),
 				text_color_disabled="#D4D4D4",
@@ -1235,8 +1250,18 @@ class Header(customtkinter.CTkFrame):
 		)
 		if not label:
 			return
-		button.configure(text=format_text(label))
+		
 		button.page_data["pageLabel"] = label
+
+		if show_track_count.get():
+			track_count = 0
+			for col in button.page_data["columns"]:
+				track_count = track_count + len(col["tracks"])
+
+			label = f"{label} ({track_count})"
+
+		button.configure(text=format_text(label))
+
 		app.data_changed()
 
 	def change_all_volume(self, button):
@@ -1479,13 +1504,16 @@ class Column(customtkinter.CTkFrame):
 		highlight = track_data["highlight"] if "highlight" in track_data else False
 		disabled = False
 
+		if show_track_count.get() and "subdata" in track_data:
+			label = f"{label} ({len(track_data["subdata"])})"
+
 		# try:
 		# 	disabled = app.edit_mode
 		# except:
 		# 	disabled = False
 		button = customtkinter.CTkButton(
 			self,
-			text=format_text(label if "subdata" not in track_data else f"{label} ({len(track_data["subdata"])})"),
+			text=format_text(label),
 			fg_color=color, 
 			hover_color=hover_color(color), 
 			text_color=text_color(color),
@@ -1584,7 +1612,10 @@ class Column(customtkinter.CTkFrame):
 
 	def receive_text_volume(self, button, new_label, new_volume):
 		if new_label:
-			button.configure(text=format_text(new_label if "subdata" not in button.track_data else f"{new_label} ({len(button.track_data["subdata"])})"))
+			text = new_label
+			if show_track_count.get() and "subdata" in button.track_data:
+				text = f"{new_label} ({len(button.track_data["subdata"])})"
+			button.configure(text=format_text(text))
 			button.track_data["label"] = new_label
 		button.track_data["volume"] = new_volume
 		if audio.playing_data is not None and audio.playing_data[2] is button.track_data:
@@ -2176,6 +2207,7 @@ root.withdraw()
 
 highlight_font = customtkinter.CTkFont(weight="bold")
 normal_font = customtkinter.CTkFont(weight="normal")
+show_track_count = customtkinter.BooleanVar(value=False)
 
 initialize_data()
 initialize_app()
