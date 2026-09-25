@@ -13,10 +13,12 @@ from copy import deepcopy
 from CTkToolTip import CTkToolTip
 from matplotlib import colors
 from pathlib import Path
-from PIL import ImageTk
+from PIL import ImageTk, Image
 from pydub import AudioSegment
 from pytablericons import TablerIcons, OutlineIcon
 import sounddevice as sd
+import io
+import webbrowser
 
 VERSION_NUM = "0.1.3"
 FADE_DURATION = 2000
@@ -58,6 +60,20 @@ fade_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.BLEN
 									dark_image=TablerIcons.load(OutlineIcon.BLEND_MODE, color='#fff', size=ICON_SIZE))
 autosave_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.DEVICE_FLOPPY, color='#000', size=ICON_SIZE),
 									dark_image=TablerIcons.load(OutlineIcon.DEVICE_FLOPPY, color='#fff', size=ICON_SIZE))
+
+def make_bird():
+	bird = '''<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-canary">
+        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+        <path d="M12 20v-2" />
+        <path d="M15 8.01v.01" />
+        <path d="M3 17l8 -8v-1a4 4 0 1 1 8 0h2l-2 2v1a7 7 0 0 1 -13.215 3.223" />
+</svg>'''
+	svg_image = pygame.image.load(io.BytesIO(bird.encode()))
+	image_bytes = pygame.image.tobytes(svg_image, 'RGBA')
+	return Image.frombytes('RGBA', (24, 24), image_bytes)
+
+bird_icon = customtkinter.CTkImage(light_image=make_bird())
+
 
 try:
 	with open('settings.json', 'r') as settings_file:
@@ -503,11 +519,11 @@ class App(customtkinter.CTkToplevel):
 
 		self.title(f"Tabletop Soundboard {VERSION_NUM}")
 		self.geometry("1280x720")
-		self.grid_columnconfigure(0, weight=1)
+		self.grid_columnconfigure(1, weight=1)
 		self.grid_rowconfigure(1, weight=1)
 
 		self.config_header = ConfigHeader(self)
-		self.config_header.grid(row=0, column=1, padx=(0, 10), pady=(10, 0), sticky="w")
+		self.config_header.grid(row=0, column=2, padx=(0, 10), pady=(10, 0), sticky="ne")
 		self.add_header_tooltips()
 
 		self.header = None
@@ -525,9 +541,17 @@ class App(customtkinter.CTkToplevel):
 		self.bind("<Control-n>", new_soundboard)
 		self.bind("<Configure>", self.resize)
 
+		self.bird_spot = customtkinter.CTkFrame(self)
+		self.bird_spot.grid(row=0, column=0, padx=(10, 0), pady=(10, 0), sticky="new")
+		self.bird = customtkinter.CTkButton(self.bird_spot, text="", image=bird_icon, fg_color=ACCENT_COLOR, hover_color=ACCENT_COLOR_HOVER, width=32, height=32, command=lambda : webbrowser.open("https://www.youtube.com/watch?v=0iVlSNpq8i8"))
+		self.bird.grid(row=0, column=0, padx=16, pady=14)
+
 	def load_header(self):
 		new_header = Header(self)
-		new_header.grid(row=0, column=0, padx=10, pady=(10, 0), sticky="ew")
+		if (bird.get()):
+			new_header.grid(row=0, column=1, padx=10, pady=(10, 0), sticky="ew")
+		else:
+			new_header.grid(row=0, column=0, columnspan=2, padx=10, pady=(10, 0), sticky="ew")
 		if self.header is not None:
 			self.after_idle(lambda h=self.header: self.destroy_header(h))
 		self.header = new_header
@@ -552,7 +576,7 @@ class App(customtkinter.CTkToplevel):
 
 	def load_page(self, page_data):
 		new_page = PageView(self, page_data)
-		new_page.grid(row=1, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+		new_page.grid(row=1, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
 		if self.page_view is not None:
 			self.after_idle(lambda p=self.page_view: self.destroy_page(p))
 		self.page_view = new_page
@@ -592,7 +616,7 @@ class App(customtkinter.CTkToplevel):
 
 	def load_atf(self, track_data, channel_dict):
 		new_frame = AlternateTrackFrame(self, track_data, channel_dict)
-		new_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=(0, 10), sticky="ew")
+		new_frame.grid(row=2, column=0, columnspan=3, padx=10, pady=(0, 10), sticky="ew")
 		if self.alternate_track_frame is not None:
 			self.after_idle(lambda a=self.alternate_track_frame: self.destroy_atf(a))
 		self.alternate_track_frame = new_frame
@@ -750,6 +774,7 @@ class App(customtkinter.CTkToplevel):
 		context_menu.add_checkbutton(label="Autosave", variable=autosave, command=self.toggle_autosave)
 		context_menu.add_checkbutton(label="Enable Tooltips", variable=enable_tooltips, command=self.set_tooltips)
 		context_menu.add_checkbutton(label="Playlist Mode", variable=playlist_mode, command=app.config_header.update_icons)
+		context_menu.add_checkbutton(label="Bird", variable=bird, command=self.toggle_bird)
 		context_menu.add_separator()
 
 		audio_output_menu = tkinter.Menu(context_menu, tearoff=0)
@@ -774,6 +799,9 @@ class App(customtkinter.CTkToplevel):
 		data["fade"] = self.fade_transitions.get()
 		self.config_header.update_icons()
 		self.data_changed()
+
+	def toggle_bird(self):
+		self.load_header()
 
 	def change_global_music_volume(self):
 		audio.temp_volume_cache = None
@@ -2208,6 +2236,7 @@ root.withdraw()
 highlight_font = customtkinter.CTkFont(weight="bold")
 normal_font = customtkinter.CTkFont(weight="normal")
 show_track_count = customtkinter.BooleanVar(value=False)
+bird = customtkinter.BooleanVar(value=True)
 
 initialize_data()
 initialize_app()
