@@ -221,7 +221,6 @@ def format_text(text):
 	if len(text) > max_len:
 		start = 0
 		end = start + max_len
-		print(f"Length: {len(text)}")
 		while start < len(text) and end < len(text):
 			space_idx = text.rfind(" ", start, end)
 			if space_idx > -1:
@@ -231,7 +230,6 @@ def format_text(text):
 				text = text[0:end] + "\n" + text[end:]
 				start = end
 			end = start + max_len
-	print(text)
 	return text
 
 
