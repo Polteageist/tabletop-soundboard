@@ -1023,7 +1023,7 @@ class App(customtkinter.CTkToplevel):
 			youtube_regex = r'^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/|youtube\.com/embed/|youtube\.com/shorts/)([\w-]{11})'
 			if re.match(youtube_regex, clipboard):
 				if tkinter.messagebox.askyesno("Use YouTube Link?", "The soundboard found a YouTube link on your clipboard. Would you like to import it as an audio track?"):
-					threading.Thread(target=self.import_youtube_track, args=(clipboard, callback, *args), daemon=True).start()
+					threading.Thread(target=self.import_youtube_track, args=(clipboard, return_list, callback, *args), daemon=True).start()
 					return
 		except tkinter.TclError:
 			pass
@@ -1036,7 +1036,7 @@ class App(customtkinter.CTkToplevel):
 				filetypes=(("Audio files", "*.wav *.mp3 *.ogg *.flac *.m4a *.opus"), ("All files", "*.*"))
 			), *args)
 
-	def import_youtube_track(self, clipboard, callback, *args):
+	def import_youtube_track(self, clipboard, return_list, callback, *args):
 		popup = LoadingPopup(app)
 		with yt_dlp.YoutubeDL(ydl_opts | {'outtmpl': str(active_dir / '%(title)s.%(ext)s')}) as ydl:
 			try:
@@ -1047,7 +1047,8 @@ class App(customtkinter.CTkToplevel):
 				popup.destroy()
 				tkinter.messagebox.showinfo("Download Error", "The download could not be completed. Please try again.")
 				return
-		callback([result["requested_downloads"][0]["filepath"]], *args)
+		ret = result["requested_downloads"][0]["filepath"]
+		app.after_idle(callback, [ret] if return_list else ret, *args)
 
 	def process_add_tracks(self, filenames, column, add_button):
 		for filename in filenames:
@@ -1737,6 +1738,8 @@ class Column(customtkinter.CTkFrame):
 		app.select_audio_files(self.process_alternate_track, button, return_list=False)
 
 	def process_alternate_track(self, filename, button):
+		if not filename:
+			return
 		if "subdata" not in button.track_data:
 			button.track_data["subdata"] = [{"subindex": 0, "sublabel": "Default"}]
 		path = app.setup_file_path(filename)
