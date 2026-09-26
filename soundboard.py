@@ -336,6 +336,8 @@ class AudioManager():
 					if loop:
 						self.play_audio(*self.playing_data, continue_loop=True)
 					else:
+						app.toggle_button_state(self.playing_data, "stop")
+						app.color_current_page(self.playing_data[0], "dehighlight")
 						self.playing_data = None
 						app.disable_stop_music()
 						if app.alternate_track_frame is not None:
@@ -513,9 +515,9 @@ class AudioManager():
 	def clear_queue(self):
 		self.queue_data = None
 
-	def set_active_channel(self, channel, track):
+	def set_active_channel(self, channel, track_idx):
 		self.active_channel = channel
-		self.active_channel_track_idx = track["subindex"]
+		self.active_channel_track_idx = track_idx
 		app.toggle_atf_buttons()
 
 
@@ -1784,7 +1786,7 @@ class Column(customtkinter.CTkFrame):
 
 	def reset_alternate_tracks(self, button):
 		if audio.playing_data is not None and audio.playing_data[2] is button.track_data:
-			audio.set_active_channel(audio.channels[0])
+			audio.set_active_channel(audio.channels[0], None)
 			if app.alternate_track_frame is not None:
 				app.after_idle(lambda a=app.alternate_track_frame: app.destroy_atf(a))
 		button.track_data.pop("subdata", None)
@@ -2014,7 +2016,7 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 				border_color="#FFFFFF",
 				border_width=0,
 				text_color_disabled="#D4D4D4",
-				command=lambda f=self.channel_dict[file], t=track: audio.set_active_channel(f, t))
+				command=lambda f=self.channel_dict[file], t_idx=track["subindex"]: audio.set_active_channel(f, t_idx))
 			button.grid(row=0, column=len(self.buttons), padx=(16, 4), pady=16, sticky="nsew")
 			button.bind("<Button-2>", lambda event, b=button: self.atf_button_right_click_menu(event, b))
 			button.bind("<Button-3>", lambda event, b=button: self.atf_button_right_click_menu(event, b))
