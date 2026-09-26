@@ -20,7 +20,7 @@ import sounddevice as sd
 import io
 import webbrowser
 
-VERSION_NUM = "0.1.3"
+VERSION_NUM = "0.2.0"
 FADE_DURATION = 2000
 TRANSITION_INCREMENT = 0.02
 HIGHLIGHT_BORDER_WIDTH = 4
@@ -75,11 +75,12 @@ def make_bird():
 bird_icon = customtkinter.CTkImage(light_image=make_bird())
 
 
+
 try:
 	with open('settings.json', 'r') as settings_file:
 		settings = json.load(settings_file)
 except FileNotFoundError:
-	settings = {"autosave": False, "tooltips": True}
+	settings = {"autosave": False, "showTrackCount": False, "tooltips": True}
 	with open('settings.json', 'w') as settings_file:
 		json.dump(settings, settings_file, indent="\t")
 
@@ -87,6 +88,8 @@ try:
 	pygame.mixer.init(devicename=settings["audioDevice"])
 except:
 	pygame.mixer.init()
+
+
 
 sb_dir = (Path.cwd() / "Soundboards")
 sb_dir.mkdir(exist_ok=True)
@@ -106,6 +109,8 @@ if active_dir is None:
 if active_dir is None:
 	active_dir = sb_dir / "New Soundboard 1"
 	active_dir.mkdir(exist_ok=True)
+
+
 
 def initialize_data():
 	global data, saved_data
@@ -166,15 +171,16 @@ def initialize_app():
 
 	app.default_loop = customtkinter.BooleanVar(value=data["loop"])
 	app.fade_transitions = customtkinter.BooleanVar(value=data["fade"])
-	fffdefdfdfdefdefdfdefffde49 = "beans"
 
-def finalize_app():
 	audio_monitor_handler = threading.Thread(target=audio.audio_monitor, daemon=True)
 	app.set_tooltips()
 	app.update_idletasks()
+
 	audio_monitor_handler.start()
 	app.config_header.update_icons()
 	app.focus_force()
+
+
 
 def open_soundboard(event):
 	new_sb = tkinter.filedialog.askdirectory(initialdir=sb_dir, title="Select the soundboard folder to open")
@@ -228,7 +234,8 @@ def load_new_soundboard(new_sb):
 
 	initialize_data()
 	initialize_app()
-	finalize_app()
+
+
 
 def text_color(bg):
 	rgb = colors.to_rgb(bg)
@@ -245,7 +252,9 @@ def disabled_color(bg):
 	lightened = (hsv[0], hsv[1], min(1.0, hsv[2] + 0.1))
 	return colors.to_hex(colors.hsv_to_rgb(lightened))
 
-def format_text(text):
+def format_text(text, track_count=None):
+	if track_count is not None and show_track_count.get():
+		text = f"{text} ({track_count} track{"s" if track_count != 1 else ""})"
 	max_len = 14
 	if len(text) > max_len:
 		start = 0
@@ -260,6 +269,7 @@ def format_text(text):
 				start = end
 			end = start + max_len
 	return text
+
 
 
 class AudioManager():
@@ -599,20 +609,15 @@ class App(customtkinter.CTkToplevel):
 		to_destroy.destroy()
 
 	def color_current_page(self, page_data, command="active"):
-			start_index = 2 if self.uses_ambience() else 1
-			if command == "active":
-				self.header.header_buttons[start_index+page_data["index"]].configure(state="disabled", fg_color=ACCENT_COLOR)
-			elif command == "inactive":
-				self.header.header_buttons[start_index+page_data["index"]].configure(state="normal", fg_color=DEFAULT_COLOR)
-			elif command == "highlight":
-				self.header.header_buttons[start_index+page_data["index"]].configure(border_width=2)
-			elif command == "dehighlight":
-				self.header.header_buttons[start_index+page_data["index"]].configure(border_width=0)
-
-	def destroy_object_tooltip(self, to_destroy):
-		if hasattr(to_destroy, "tooltip"):
-			to_destroy.tooltip.destroy()
-		to_destroy.destroy()
+		start_index = 2 if self.uses_ambience() else 1
+		if command == "active":
+			self.header.header_buttons[start_index+page_data["index"]].configure(state="disabled", fg_color=ACCENT_COLOR)
+		elif command == "inactive":
+			self.header.header_buttons[start_index+page_data["index"]].configure(state="normal", fg_color=DEFAULT_COLOR)
+		elif command == "highlight":
+			self.header.header_buttons[start_index+page_data["index"]].configure(border_width=2)
+		elif command == "dehighlight":
+			self.header.header_buttons[start_index+page_data["index"]].configure(border_width=0)
 
 	def load_atf(self, track_data, channel_dict):
 		new_frame = AlternateTrackFrame(self, track_data, channel_dict)
@@ -644,6 +649,11 @@ class App(customtkinter.CTkToplevel):
 					fg_color=DEFAULT_COLOR if "file" in tracks[idx] else ACCENT_COLOR,
 					border_width=0,
 					state="normal")
+
+	def destroy_object_tooltip(self, to_destroy):
+		if hasattr(to_destroy, "tooltip"):
+			to_destroy.tooltip.destroy()
+		to_destroy.destroy()
 
 	def resize(self, event):
 		self.header_grid()
@@ -767,12 +777,12 @@ class App(customtkinter.CTkToplevel):
 		context_menu.add_command(label="Global Music Volume", command=self.change_global_music_volume)
 		context_menu.add_command(label="Global Ambience Volume", command=self.change_global_ambience_volume)
 		context_menu.add_command(label="Change Default Color", command=self.change_default_color)
-		context_menu.add_checkbutton(label="Show Track Counts", variable=show_track_count, command=self.toggle_track_count)
 		context_menu.add_checkbutton(label="Use Fade Transitions", variable=self.fade_transitions, command=self.toggle_fade_transitions)
 		context_menu.add_checkbutton(label="Loop by Default", variable=self.default_loop, command=self.toggle_default_loop)
 		context_menu.add_separator()
 		context_menu.add_checkbutton(label="Autosave", variable=autosave, command=self.toggle_autosave)
 		context_menu.add_checkbutton(label="Enable Tooltips", variable=enable_tooltips, command=self.set_tooltips)
+		context_menu.add_checkbutton(label="Show Track Counts", variable=show_track_count, command=self.toggle_track_count)
 		context_menu.add_checkbutton(label="Playlist Mode", variable=playlist_mode, command=app.config_header.update_icons)
 		context_menu.add_checkbutton(label="Bird", variable=bird, command=self.toggle_bird)
 		context_menu.add_separator()
@@ -790,18 +800,6 @@ class App(customtkinter.CTkToplevel):
 			context_menu.post(event.x_root, event.y_root)
 		finally:
 			context_menu.grab_release()
-
-	def toggle_track_count(self):
-		self.load_page(self.page_view.page_data)
-		self.load_header()
-
-	def toggle_fade_transitions(self):
-		data["fade"] = self.fade_transitions.get()
-		self.config_header.update_icons()
-		self.data_changed()
-
-	def toggle_bird(self):
-		self.load_header()
 
 	def change_global_music_volume(self):
 		audio.temp_volume_cache = None
@@ -836,6 +834,11 @@ class App(customtkinter.CTkToplevel):
 						if "color" not in button.track_data:
 							button.configure(fg_color=data["color"], hover_color=hover_color(data["color"]), text_color=text_color(data["color"]))
 			self.data_changed()
+
+	def toggle_fade_transitions(self):
+		data["fade"] = self.fade_transitions.get()
+		self.config_header.update_icons()
+		self.data_changed()
 
 	def toggle_default_loop(self):
 		data["loop"] = self.default_loop.get()
@@ -880,9 +883,17 @@ class App(customtkinter.CTkToplevel):
 		self.all_tooltips.append(self.config_header.global_settings_button.tooltip)
 		self.config_header.edit_button.tooltip = CTkToolTip(self.config_header.edit_button, message="Edit mode", delay=1, follow=False)
 		self.all_tooltips.append(self.config_header.edit_button.tooltip)
-		if hasattr(self.config_header, "save_button"):
-			self.config_header.save_button.tooltip = CTkToolTip(self.config_header.save_button, message="Save changes", delay=1, follow=False)
-			self.all_tooltips.append(self.config_header.save_button.tooltip)
+		self.config_header.save_button.tooltip = CTkToolTip(self.config_header.save_button, message="Save changes", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.save_button.tooltip)
+
+		self.config_header.config_icons.loop_label.tooltip = CTkToolTip(self.config_header.config_icons.loop_label, message="Loop by Default", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.config_icons.loop_label.tooltip)
+		self.config_header.config_icons.fade_label.tooltip = CTkToolTip(self.config_header.config_icons.fade_label, message="Use Fade Transitions", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.config_icons.fade_label.tooltip)
+		self.config_header.config_icons.playlist_label.tooltip = CTkToolTip(self.config_header.config_icons.playlist_label, message="Playlist Mode", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.config_icons.playlist_label.tooltip)
+		self.config_header.config_icons.save_label.tooltip = CTkToolTip(self.config_header.config_icons.save_label, message="Autosave", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.config_icons.save_label.tooltip)
 
 	def add_page_tooltips(self):
 		if self.page_view is not None:
@@ -898,6 +909,39 @@ class App(customtkinter.CTkToplevel):
 			for button in self.alternate_track_frame.buttons:
 				button.tooltip = CTkToolTip(button, message=Path(button.file).stem, delay=2, follow=False)
 				self.all_tooltips.append(button.tooltip)
+
+	def toggle_track_count(self):
+		self.load_page(self.page_view.page_data)
+		self.load_header()
+		if settings["showTrackCount"] != show_track_count.get():
+			settings["showTrackCount"] = show_track_count.get()
+			with open('settings.json', 'w') as settings_file:
+				json.dump(settings, settings_file, indent="\t")
+
+	def update_track_count(self, requires_page_update=False):
+		if not show_track_count.get():
+			return
+		for button in self.header.header_buttons:
+			if not hasattr(button, "page_data"):
+				continue
+			label = button.page_data["pageLabel"]
+			track_count = 0
+			for col in button.page_data["columns"]:
+				for track in col["tracks"]:
+					if "file" not in track:
+						continue
+					track_count += 1 if "subdata" not in track else len(track["subdata"])
+			button.configure(text=format_text(label, track_count))
+		if requires_page_update and self.page_view is not None:
+			for c in self.page_view.columns:
+				for button in c.entries:
+					if not isinstance(button, customtkinter.CTkButton):
+						continue
+					button_text = button.track_data["label"] if "label" in button.track_data else Path(button.track_data["file"]).stem
+					button.configure(text=format_text(button_text, len(button.track_data["subdata"]) if "subdata" in button.track_data else None))
+
+	def toggle_bird(self):
+		self.load_header()
 
 	def set_audio_output(self):
 		pygame.mixer.quit()
@@ -1016,6 +1060,7 @@ class App(customtkinter.CTkToplevel):
 				self.all_tooltips.append(button.tooltip)
 			add_button.grid(row=len(column.entries)+1)
 		self.data_changed()
+		self.update_track_count()
 		if len(filenames) == 1:
 			column.change_text_volume(button)
 
@@ -1075,58 +1120,6 @@ class App(customtkinter.CTkToplevel):
 		self.close()
 		root.destroy()
 
-class ConfigIcons(customtkinter.CTkFrame):
-	def __init__(self, master):
-		super().__init__(master)
-
-		self.configure(fg_color="transparent")
-
-		self.loop_label = customtkinter.CTkLabel(self, text="", height=9)
-		self.loop_label.grid(row=0, column=0, padx=1, pady=1)
-
-		self.fade_label = customtkinter.CTkLabel(self, text="", height=9)
-		self.fade_label.grid(row=1, column=0, padx=1, pady=1)
-
-		self.playlist_label = customtkinter.CTkLabel(self, text="", height=9)
-		self.playlist_label.grid(row=0, column=1, padx=1, pady=1)
-
-		self.save_label = customtkinter.CTkLabel(self, text="", height=9)
-		self.save_label.grid(row=1, column=1, padx=1, pady=1)
-
-		self.update_icons()
-
-
-	def update_icons(self):
-		exists = False
-		
-		if hasattr(self.master.master, 'default_loop') and self.master.master.default_loop.get():
-			self.loop_label.configure(image=loop_icon)
-			exists = True
-		else:
-			self.loop_label.configure(image="")
-		
-		if hasattr(self.master.master, 'fade_transitions') and self.master.master.fade_transitions.get():
-			self.fade_label.configure(image=fade_icon)
-			exists = True
-		else:
-			self.fade_label.configure(image="")
-		
-		if 'autosave' in globals() and autosave.get():
-			self.save_label.configure(image=autosave_icon)
-			exists = True
-		else:
-			self.save_label.configure(image="")
-
-		if 'playlist_mode' in globals() and playlist_mode.get():
-			self.playlist_label.configure(image=playlist_icon)
-			exists = True
-		else:
-			self.playlist_label.configure(image="")
-
-		if exists:
-			self.grid(padx=(11,0))
-		else:
-			self.grid(padx=0)
 
 
 class ConfigHeader(customtkinter.CTkFrame):
@@ -1151,23 +1144,77 @@ class ConfigHeader(customtkinter.CTkFrame):
 			command=self.master.toggle_edit)
 		self.edit_button.grid(row=0, column=2, padx=(12,4), pady=14, sticky="nse")
 
-		if not settings["autosave"]:
-			
-			self.save_button = customtkinter.CTkButton(
-				self,
-				text="",
-				state=self.master.get_save_button_state(),
-				image=save_icon,
-				fg_color=DEFAULT_COLOR_DISABLED,
-				border_color=DEFAULT_COLOR_DISABLED,
-				border_width = 2,
-				width=32,
-				height=32,
-				command=self.master.save)
-			self.save_button.grid(row=0, column=3, padx=(12, 16), pady=14, sticky="nse")
+		self.save_button = customtkinter.CTkButton(
+			self,
+			text="",
+			state=self.master.get_save_button_state(),
+			image=save_icon,
+			fg_color=DEFAULT_COLOR_DISABLED,
+			border_color=DEFAULT_COLOR_DISABLED,
+			border_width = 2,
+			width=32,
+			height=32,
+			command=self.master.save)
+		self.save_button.grid(row=0, column=3, padx=(12, 16), pady=14, sticky="nse")
 
 	def update_icons(self):
 		self.config_icons.update_icons()
+
+
+
+class ConfigIcons(customtkinter.CTkFrame):
+	def __init__(self, master):
+		super().__init__(master)
+
+		self.configure(fg_color="transparent")
+
+		self.loop_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.loop_label.grid(row=0, column=0, padx=1, pady=1)
+
+		self.fade_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.fade_label.grid(row=1, column=0, padx=1, pady=1)
+
+		self.playlist_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.playlist_label.grid(row=0, column=1, padx=1, pady=1)
+
+		self.save_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.save_label.grid(row=1, column=1, padx=1, pady=1)
+
+		self.update_icons()
+
+
+	def update_icons(self):
+		exists = False
+
+		if hasattr(self.master.master, 'default_loop') and self.master.master.default_loop.get():
+			self.loop_label.configure(image=loop_icon)
+			exists = True
+		else:
+			self.loop_label.configure(image="")
+
+		if hasattr(self.master.master, 'fade_transitions') and self.master.master.fade_transitions.get():
+			self.fade_label.configure(image=fade_icon)
+			exists = True
+		else:
+			self.fade_label.configure(image="")
+
+		if 'autosave' in globals() and autosave.get():
+			self.save_label.configure(image=autosave_icon)
+			exists = True
+		else:
+			self.save_label.configure(image="")
+
+		if 'playlist_mode' in globals() and playlist_mode.get():
+			self.playlist_label.configure(image=playlist_icon)
+			exists = True
+		else:
+			self.playlist_label.configure(image="")
+
+		if exists:
+			self.grid(padx=(11,0))
+		else:
+			self.grid(padx=0)
+
 
 
 class Header(customtkinter.CTkFrame):
@@ -1200,15 +1247,15 @@ class Header(customtkinter.CTkFrame):
 		for i, page in enumerate(data["pages"]):
 			label = page["pageLabel"]
 
-			if show_track_count.get():
-				track_count = 0
-				for col in page["columns"]:
-					track_count = track_count + len(col["tracks"])
-
-				label = f"{label} ({track_count})"
+			track_count = 0
+			for col in page["columns"]:
+				for track in col["tracks"]:
+					if "file" not in track:
+						continue
+					track_count += 1 if "subdata" not in track else len(track["subdata"])
 
 			button = customtkinter.CTkButton(
-				self, text=format_text(label),
+				self, text=format_text(label, track_count),
 				text_color_disabled="#D4D4D4",
 				border_color="#FFFFFF",
 				width=BUTTON_WIDTH,
@@ -1281,14 +1328,14 @@ class Header(customtkinter.CTkFrame):
 		
 		button.page_data["pageLabel"] = label
 
-		if show_track_count.get():
-			track_count = 0
-			for col in button.page_data["columns"]:
-				track_count = track_count + len(col["tracks"])
+		track_count = 0
+		for col in button.page_data["columns"]:
+			for track in col["tracks"]:
+				if "file" not in track:
+					continue
+				track_count += 1 if "subdata" not in track else len(track["subdata"])
 
-			label = f"{label} ({track_count})"
-
-		button.configure(text=format_text(label))
+		button.configure(text=format_text(label, track_count))
 
 		app.data_changed()
 
@@ -1532,8 +1579,7 @@ class Column(customtkinter.CTkFrame):
 		highlight = track_data["highlight"] if "highlight" in track_data else False
 		disabled = False
 
-		if show_track_count.get() and "subdata" in track_data:
-			label = f"{label} ({len(track_data["subdata"])})"
+		track_count = len(track_data["subdata"]) if "subdata" in track_data else None
 
 		# try:
 		# 	disabled = app.edit_mode
@@ -1541,7 +1587,7 @@ class Column(customtkinter.CTkFrame):
 		# 	disabled = False
 		button = customtkinter.CTkButton(
 			self,
-			text=format_text(label),
+			text=format_text(label, track_count),
 			fg_color=color, 
 			hover_color=hover_color(color), 
 			text_color=text_color(color),
@@ -1640,10 +1686,8 @@ class Column(customtkinter.CTkFrame):
 
 	def receive_text_volume(self, button, new_label, new_volume):
 		if new_label:
-			text = new_label
-			if show_track_count.get() and "subdata" in button.track_data:
-				text = f"{new_label} ({len(button.track_data["subdata"])})"
-			button.configure(text=format_text(text))
+			track_count = len(button.track_data["subdata"]) if "subdata" in button.track_data else None
+			button.configure(text=format_text(new_label, track_count))
 			button.track_data["label"] = new_label
 		button.track_data["volume"] = new_volume
 		if audio.playing_data is not None and audio.playing_data[2] is button.track_data:
@@ -1692,6 +1736,21 @@ class Column(customtkinter.CTkFrame):
 	def link_alternate_track(self, button):
 		app.select_audio_files(self.process_alternate_track, button, return_list=False)
 
+	def process_alternate_track(self, filename, button):
+		if "subdata" not in button.track_data:
+			button.track_data["subdata"] = [{"subindex": 0, "sublabel": "Default"}]
+		path = app.setup_file_path(filename)
+		label = simpledialog.askstring(
+			title="Label Alternate Track",
+			prompt="Write label:"
+		)
+		if not label:
+			label = path.stem
+		button.track_data["subdata"].append({"file": path.name, "subindex": len(button.track_data["subdata"]), "sublabel": label})
+
+		app.data_changed()
+		app.update_track_count(requires_page_update=True)
+
 	def move_track_up(self, button):
 		index = self.entries.index(button)
 		self.entries.insert(index - 1, self.entries.pop(index))
@@ -1710,25 +1769,8 @@ class Column(customtkinter.CTkFrame):
 		self.entries.insert(index, blank)
 		self.reindex_tracks()
 
-	def process_alternate_track(self, filename, button):
-		if "subdata" not in button.track_data:
-			button.track_data["subdata"] = [{"subindex": 0, "sublabel": "Default"}]
-		path = app.setup_file_path(filename)
-		label = simpledialog.askstring(
-			title="Label Alternate Track",
-			prompt="Write label:"
-		)
-		if not label:
-			label = path.stem
-		button.track_data["subdata"].append({"file": path.name, "subindex": len(button.track_data["subdata"]), "sublabel": label})
-
-		label = button.track_data["label"] if "label" in button.track_data else Path(button.track_data["file"]).stem
-		button.configure(text=label if "subdata" not in button.track_data else f"{label} ({len(button.track_data["subdata"])})")
-
-		app.data_changed()
-
 	def reset_text(self, button):
-		button.configure(text=Path(button.track_data["file"]).stem)
+		button.configure(text=format_text(Path(button.track_data["file"]).stem, len(button.track_data["subdata"]) if "subdata" in button.track_data else None))
 		button.track_data.pop("label", None)
 		app.data_changed()
 
@@ -1744,10 +1786,8 @@ class Column(customtkinter.CTkFrame):
 				app.after_idle(lambda a=app.alternate_track_frame: app.destroy_atf(a))
 		button.track_data.pop("subdata", None)
 
-		label = button.track_data["label"] if "label" in button.track_data else Path(button.track_data["file"]).stem
-		button.configure(text=label)
-
 		app.data_changed()
+		app.update_track_count(requires_page_update=True)
 
 	def remove_track(self, button):
 		if audio.playing_data is not None and audio.playing_data[2] is button.track_data:
@@ -1757,6 +1797,7 @@ class Column(customtkinter.CTkFrame):
 		self.entries.remove(button)
 		self.tracks.remove(button.track_data)
 		app.destroy_object_tooltip(button)
+		app.update_track_count()
 		self.reindex_tracks()
 
 	def blank_right_click_menu(self, event, blank):
@@ -1948,6 +1989,7 @@ class Column(customtkinter.CTkFrame):
 		app.page_view.columns.remove(self)
 		app.page_view.page_data["columns"].remove(self.column_data)
 		app.page_view.reindex_columns()
+		app.update_track_count()
 		self.destroy()
 
 
@@ -2018,7 +2060,7 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 	def reset_sublabel(self, button):
 		label = Path(button.file).stem
 		if button.winfo_exists():
-			button.configure(text=label)
+			button.configure(text=format_text(label))
 		button.subdata_entry["sublabel"] = label
 		app.data_changed()
 
@@ -2046,6 +2088,7 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 			app.data_changed()
 			if app.alternate_track_frame is not None:
 				app.after_idle(lambda a=app.alternate_track_frame: app.destroy_atf(a))
+		app.update_track_count(requires_page_update=True)
 
 	def reindex_atf_buttons(self):
 		for i, button in enumerate(self.buttons):
@@ -2235,17 +2278,14 @@ root.withdraw()
 
 highlight_font = customtkinter.CTkFont(weight="bold")
 normal_font = customtkinter.CTkFont(weight="normal")
-show_track_count = customtkinter.BooleanVar(value=False)
 bird = customtkinter.BooleanVar(value=True)
-
-initialize_data()
-initialize_app()
-
 playlist_mode = customtkinter.BooleanVar(value=False)
+show_track_count = customtkinter.BooleanVar(value=settings["showTrackCount"])
 autosave = customtkinter.BooleanVar(value=settings["autosave"])
 enable_tooltips = customtkinter.BooleanVar(value=settings["tooltips"])
 audio_device_var = customtkinter.StringVar(value=settings["audioDevice"] if "audioDevice" in settings else "DEFAULT")
 
-finalize_app()
+initialize_data()
+initialize_app()
 
 root.mainloop()
