@@ -24,7 +24,7 @@ VERSION_NUM = "0.2.0"
 FADE_DURATION = 2000
 TRANSITION_INCREMENT = 0.02
 HIGHLIGHT_BORDER_WIDTH = 4
-BUTTON_WIDTH = 140
+BUTTON_WIDTH = 180
 
 DEFAULT_COLOR = "#1C6BA4"
 DEFAULT_COLOR_HOVER = "#23476D"
@@ -33,6 +33,104 @@ DEFAULT_COLOR_DISABLED = "#627E99"
 ACCENT_COLOR = "#9264C0"
 ACCENT_COLOR_HOVER = "#643B8D"
 ACCENT_COLOR_DISABLED = "#9F80C0"
+
+BOLD_CHAR_WIDTHS = {
+    "a": 8,
+    "b": 9,
+    "c": 8,
+    "d": 9,
+    "e": 8,
+    "f": 6,
+    "g": 9,
+    "h": 9,
+    "i": 4,
+    "j": 4,
+    "k": 8,
+    "l": 4,
+    "m": 13,
+    "n": 9,
+    "o": 8,
+    "p": 9,
+    "q": 9,
+    "r": 6,
+    "s": 8,
+    "t": 6,
+    "u": 9,
+    "v": 8,
+    "w": 11,
+    "x": 8,
+    "y": 8,
+    "x": 8,
+    "z": 8,
+    "A": 10,
+    "B": 9,
+    "C": 10,
+    "D": 10,
+    "E": 9,
+    "F": 8,
+    "G": 10,
+    "H": 11,
+    "I": 5,
+    "J": 8,
+    "K": 10,
+    "L": 8,
+    "M": 12,
+    "N": 10,
+    "O": 11,
+    "P": 9,
+    "Q": 11,
+    "R": 9,
+    "S": 9,
+    "T": 9,
+    "U": 10,
+    "V": 10,
+    "W": 14,
+    "X": 10,
+    "Y": 10,
+    "Z": 9,
+    "1": 7,
+    "2": 9,
+    "3": 9,
+    "4": 9,
+    "5": 9,
+    "6": 9,
+    "7": 8,
+    "8": 9,
+    "9": 9,
+    "0": 9,
+    " ": 4,
+    ".": 5,
+    ",": 5,
+    ";": 5,
+    ":": 5,
+    "\"": 8,
+    "'": 5,
+    "?": 8,
+    "!": 5,
+    "@": 12,
+    "#": 9,
+    "$": 9,
+    "%": 14,
+    "^": 9,
+    "&": 10,
+    "*": 7,
+    "(": 6,
+    ")": 6,
+    "[": 6,
+    "]": 6,
+    "{": 6,
+    "}": 6,
+    "|": 4,
+    "/": 5,
+    "<": 9,
+    ">": 9,
+    "~": 9,
+    "`": 7,
+    "-": 7,
+    "=": 9,
+    "_": 9,
+    "+": 9,
+    }
 
 ydl_opts = {
 	'format': 'bestaudio/best',
@@ -255,21 +353,52 @@ def disabled_color(bg):
 def format_text(text, track_count=None):
 	if track_count is not None and show_track_count.get():
 		text = f"{text} ({track_count} track{"s" if track_count != 1 else ""})"
-	max_len = 14
-	if len(text) > max_len:
-		start = 0
-		end = start + max_len
-		while start < len(text) and end < len(text):
-			space_idx = text.rfind(" ", start, end)
-			if space_idx > -1:
-				text = text[0:space_idx] + "\n" + text[space_idx + 1:]
-				start = space_idx + 1
-			else:
-				text = text[0:end] + "\n" + text[end:]
-				start = end
-			end = start + max_len
-	return text
 
+	new_text = ""
+	start = 0
+	end = 0
+
+	# construct char_widths
+	char_widths = []
+	for c in text:
+		char_widths.append(BOLD_CHAR_WIDTHS[c])
+
+	current_len = 0
+	while start < len(text) and end < len(text):
+		current_len = current_len + char_widths[end]
+
+		if (current_len > BUTTON_WIDTH):
+			if (len(new_text) > 0):
+				new_text = new_text + "\n"
+
+			# We have a few cases
+			# please remember that if it is too long, that means the character in end is making the string too long
+			# 1. end is in a middle of a word -> "while yo" --- "u can"
+			# 2. end is in a middle of a word and it is the only word so far -> "inters" --- "ection"
+			# 3. end is in a space -> "while " --- "you can"
+			#
+			# For case 1, we want to backtrack to the last " " index and use that as our end (remember end is exclusive), and then set end + 1 as start and end
+			# For case 2, this happens when the last " " index is -1, so we will just cut it here and set end as start and end
+			# For case 3, we will reuse what we do with case 1, minus the backtracking. Maybe plus the backtracking because it will just give us the same thing actually
+
+			last_space = text.rfind(" ", start, end)
+			if last_space == -1:
+				new_text = new_text + text[start:end]
+				start = end
+			else:
+				end = last_space
+				new_text = new_text + text[start:end]
+
+				start = end + 1
+				end = end + 1
+			current_len = 0
+
+		end = end + 1
+
+	if (len(new_text) > 0):
+		new_text = new_text + "\n"
+	new_text = new_text + text[start:end]
+	return new_text
 
 
 class AudioManager():
@@ -996,14 +1125,14 @@ class App(customtkinter.CTkToplevel):
 				# button.configure(state="disabled")
 				# button.bind("<Button-1>", lambda event, b=button: self.track_drag_start(event, b))
 				# button.bind("<B1-Motion>", lambda event, b=button: self.track_drag_motion(event, b))
-			add_button = customtkinter.CTkButton(c, text="Add Track")
+			add_button = customtkinter.CTkButton(c, text="Add Track", width=BUTTON_WIDTH)
 			add_button.configure(command=lambda c=c, b=add_button: self.edit_add_track(c, b))
 			add_button.grid(row=len(c.entries)+1, column=0, padx=10, pady=10, sticky="ew")
 			self.edit_mode_add_objects.append(add_button)
 		self.page_view.add_column_frame = customtkinter.CTkFrame(self.page_view)
 		self.page_view.add_column_frame.grid(row=0, column=len(self.page_view.columns), padx=0, pady=0, sticky="new")
 		self.page_view.add_column_frame.grid_columnconfigure(0, weight=1)
-		add_column_button = customtkinter.CTkButton(self.page_view.add_column_frame, text="Add Column", command=self.edit_add_column)
+		add_column_button = customtkinter.CTkButton(self.page_view.add_column_frame, text="Add Column", width=BUTTON_WIDTH, command=self.edit_add_column)
 		add_column_button.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 		self.edit_mode_add_objects.append(self.page_view.add_column_frame)
 
@@ -1270,7 +1399,7 @@ class Header(customtkinter.CTkFrame):
 			self.header_buttons.append(button)
 
 		if self.master.edit_mode:
-			button = customtkinter.CTkButton(self, text="Add Page", command=app.edit_add_page)
+			button = customtkinter.CTkButton(self, text="Add Page", width=BUTTON_WIDTH, command=app.edit_add_page)
 			button.grid(row=0, column=len(self.header_buttons), padx=(16,4), pady=16, sticky="ns")
 			self.header_buttons.append(button)
 
@@ -2016,6 +2145,7 @@ class AlternateTrackFrame(customtkinter.CTkFrame):
 				border_color="#FFFFFF",
 				border_width=0,
 				text_color_disabled="#D4D4D4",
+				width=BUTTON_WIDTH,
 				command=lambda f=self.channel_dict[file], t_idx=track["subindex"]: audio.set_active_channel(f, t_idx))
 			button.grid(row=0, column=len(self.buttons), padx=(16, 4), pady=16, sticky="nsew")
 			button.bind("<Button-2>", lambda event, b=button: self.atf_button_right_click_menu(event, b))
