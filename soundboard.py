@@ -361,7 +361,10 @@ def format_text(text, track_count=None):
 	# construct char_widths
 	char_widths = []
 	for c in text:
-		char_widths.append(BOLD_CHAR_WIDTHS[c])
+		if c in BOLD_CHAR_WIDTHS:
+			char_widths.append(BOLD_CHAR_WIDTHS[c])
+		else:
+			char_widths.append(highlight_font.measure(c))
 
 	current_len = 0
 	while start < len(text) and end < len(text):
@@ -1390,6 +1393,7 @@ class Header(customtkinter.CTkFrame):
 				self, text=format_text(label, track_count),
 				text_color_disabled="#D4D4D4",
 				border_color="#FFFFFF",
+				border_spacing=2,
 				width=BUTTON_WIDTH,
 				command=lambda a=data["pages"][i]: app.load_page(a))
 			button.page_data = data["pages"][i]
@@ -1725,6 +1729,7 @@ class Column(customtkinter.CTkFrame):
 			text_color=text_color(color),
 			border_color="white", 
 			border_width=0,
+			border_spacing=2,
 			text_color_disabled=text_color(color),
 			width=BUTTON_WIDTH,
 			state="disabled" if disabled else "normal",
