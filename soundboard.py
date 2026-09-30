@@ -150,8 +150,8 @@ edit_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.EDIT
 
 ICON_SIZE = 24
 
-loop_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.REPEAT, color='#000', size=ICON_SIZE),
-									dark_image=TablerIcons.load(OutlineIcon.REPEAT, color='#fff', size=ICON_SIZE))
+queue_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.LIST, color='#000', size=ICON_SIZE),
+									dark_image=TablerIcons.load(OutlineIcon.LIST, color='#fff', size=ICON_SIZE))
 playlist_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.PLAYLIST, color='#000', size=ICON_SIZE),
 									dark_image=TablerIcons.load(OutlineIcon.PLAYLIST, color='#fff', size=ICON_SIZE))
 fade_icon = customtkinter.CTkImage(light_image=TablerIcons.load(OutlineIcon.BLEND_MODE, color='#000', size=ICON_SIZE),
@@ -590,6 +590,8 @@ class AudioManager():
 
 				pygame.mixer.music.play()
 
+		app.config_header.update_icons()
+
 	def stop_music(self, force_instant=False):
 		if self.playing_data is not None:
 			app.color_current_page(self.playing_data[0], "dehighlight")
@@ -600,6 +602,7 @@ class AudioManager():
 		self.bookmark_data = None
 		self.fade_queue_data = None
 		app.disable_stop_music()
+		app.config_header.update_icons()
 		if force_instant or not data["fade"] or self.fading:
 			self.fading = False
 			pygame.mixer.stop()
@@ -646,6 +649,7 @@ class AudioManager():
 
 	def clear_queue(self):
 		self.queue_data = None
+		app.config_header.update_icons()
 
 	def set_active_channel(self, channel, track_idx):
 		self.active_channel = channel
@@ -983,7 +987,6 @@ class App(customtkinter.CTkToplevel):
 						continue
 					if "loop" not in button.track_data:
 						button.loop_var.set(data["loop"])
-		self.config_header.update_icons()
 		self.data_changed()
 
 	def toggle_autosave(self):
@@ -1020,8 +1023,8 @@ class App(customtkinter.CTkToplevel):
 		self.config_header.save_button.tooltip = CTkToolTip(self.config_header.save_button, message="Save changes", delay=1, follow=False)
 		self.all_tooltips.append(self.config_header.save_button.tooltip)
 
-		self.config_header.config_icons.loop_label.tooltip = CTkToolTip(self.config_header.config_icons.loop_label, message="Loop by Default", delay=1, follow=False)
-		self.all_tooltips.append(self.config_header.config_icons.loop_label.tooltip)
+		self.config_header.config_icons.queue_label.tooltip = CTkToolTip(self.config_header.config_icons.queue_label, message="Tracks Queued", delay=1, follow=False)
+		self.all_tooltips.append(self.config_header.config_icons.queue_label.tooltip)
 		self.config_header.config_icons.fade_label.tooltip = CTkToolTip(self.config_header.config_icons.fade_label, message="Use Fade Transitions", delay=1, follow=False)
 		self.all_tooltips.append(self.config_header.config_icons.fade_label.tooltip)
 		self.config_header.config_icons.playlist_label.tooltip = CTkToolTip(self.config_header.config_icons.playlist_label, message="Playlist Mode", delay=1, follow=False)
@@ -1303,14 +1306,14 @@ class ConfigIcons(customtkinter.CTkFrame):
 
 		self.configure(fg_color="transparent")
 
-		self.loop_label = customtkinter.CTkLabel(self, text="", height=9)
-		self.loop_label.grid(row=0, column=0, padx=1, pady=1)
+		self.playlist_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.playlist_label.grid(row=0, column=0, padx=1, pady=1)
+
+		self.queue_label = customtkinter.CTkLabel(self, text="", height=9)
+		self.queue_label.grid(row=0, column=1, padx=1, pady=1)
 
 		self.fade_label = customtkinter.CTkLabel(self, text="", height=9)
 		self.fade_label.grid(row=1, column=0, padx=1, pady=1)
-
-		self.playlist_label = customtkinter.CTkLabel(self, text="", height=9)
-		self.playlist_label.grid(row=0, column=1, padx=1, pady=1)
 
 		self.save_label = customtkinter.CTkLabel(self, text="", height=9)
 		self.save_label.grid(row=1, column=1, padx=1, pady=1)
@@ -1321,11 +1324,17 @@ class ConfigIcons(customtkinter.CTkFrame):
 	def update_icons(self):
 		exists = False
 
-		if hasattr(self.master.master, 'default_loop') and self.master.master.default_loop.get():
-			self.loop_label.configure(image=loop_icon)
+		if 'playlist_mode' in globals() and playlist_mode.get():
+			self.playlist_label.configure(image=playlist_icon)
 			exists = True
 		else:
-			self.loop_label.configure(image="")
+			self.playlist_label.configure(image="")
+
+		if hasattr(audio, 'queue_data') and audio.queue_data is not None:
+			self.queue_label.configure(image=queue_icon)
+			exists = True
+		else:
+			self.queue_label.configure(image="")
 
 		if hasattr(self.master.master, 'fade_transitions') and self.master.master.fade_transitions.get():
 			self.fade_label.configure(image=fade_icon)
@@ -1338,12 +1347,6 @@ class ConfigIcons(customtkinter.CTkFrame):
 			exists = True
 		else:
 			self.save_label.configure(image="")
-
-		if 'playlist_mode' in globals() and playlist_mode.get():
-			self.playlist_label.configure(image=playlist_icon)
-			exists = True
-		else:
-			self.playlist_label.configure(image="")
 
 		if exists:
 			self.grid(padx=(11,0))
@@ -1815,6 +1818,7 @@ class Column(customtkinter.CTkFrame):
 				audio.play_audio(d)
 			else:
 				audio.queue_data = d
+		app.config_header.update_icons()
 
 	def change_text_volume(self, button):
 		initial_vol = button.track_data["volume"] if "volume" in button.track_data else 1
